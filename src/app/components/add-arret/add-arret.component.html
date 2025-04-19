@@ -1,0 +1,32 @@
+<div class="relative h-full w-full">
+  <!-- Carte Leaflet en plein écran -->
+  <div id="map" class="absolute inset-0 z-0"></div>
+
+  <!-- Formulaire dynamique -->
+  <div [class.show]="showForm" class="form-container">
+    <div class="form-header">
+      <h3 class="form-title">Ajouter un arrêt</h3>
+      <button (click)="closeForm()" class="close-button">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <form (ngSubmit)="addArret()" class="form-content">
+      <div class="form-group">
+        <label for="nom" class="form-label">Nom de l'arrêt</label>
+        <input type="text" id="nom" [(ngModel)]="arret.nom" name="nom" required class="form-input">
+      </div>
+
+      <div class="form-actions">
+        <button type="button" (click)="removeMarker()"  class="delete-button">
+          <i class="fas fa-trash-alt"></i>
+          <span>Supprimer</span>
+        </button>
+        <button type="submit" class="submit-button">
+          <i class="fas fa-save"></i>
+          <span>Enregistrer</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

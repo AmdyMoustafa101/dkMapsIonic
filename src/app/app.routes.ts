@@ -1,13 +1,14 @@
 import { Routes } from '@angular/router';
+import { AddArretComponent } from './components/add-arret/add-arret.component';
 
 export const routes: Routes = [
   {
-    path: 'home',
-    loadComponent: () => import('./home/home.page').then((m) => m.HomePage),
+    path: 'arret',
+    component: AddArretComponent,
   },
   {
     path: '',
-    redirectTo: 'home',
+    redirectTo: '/arret',
     pathMatch: 'full',
   },
 ];
