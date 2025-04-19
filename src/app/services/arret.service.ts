@@ -10,7 +10,19 @@ export class ArretService {
 
   constructor() { }
 
-  async createArret(arret: Arret): Promise<any> {
+  // Récupérer tous les arrêts
+  async getArrets(): Promise<Arret[]> {
+    try {
+      const response = await axios.get(this.apiUrl);
+      return response.data;
+    } catch (error) {
+      console.error('Erreur chargement arrêts:', error);
+      return [];
+    }
+  }
+
+  // Créer un nouvel arrêt
+  async createArret(arret: Arret): Promise<Arret> {
     try {
       const response = await axios.post(this.apiUrl, {
         nom: arret.nom,
@@ -22,27 +34,35 @@ export class ArretService {
       });
       return response.data;
     } catch (error) {
-      console.error('Error creating arret:', error);
+      console.error('Erreur création arrêt:', error);
       throw error;
     }
   }
 
-  async updateArret(id: string, arret: Arret): Promise<any> {
+  // Mettre à jour un arrêt existant
+  async updateArret(arret: Arret): Promise<Arret> {
     try {
-      const response = await axios.put(`${this.apiUrl}/${id}`, arret);
+      const response = await axios.put(`${this.apiUrl}/${arret._id}`, {
+        nom: arret.nom,
+        position: {
+          type: 'Point',
+          coordinates: arret.position.coordinates
+        }
+      });
       return response.data;
     } catch (error) {
-      console.error('Error updating arret:', error);
+      console.error('Erreur mise à jour arrêt:', error);
       throw error;
     }
   }
 
+  // Supprimer un arrêt
   async deleteArret(id: string): Promise<any> {
     try {
       const response = await axios.delete(`${this.apiUrl}/${id}`);
       return response.data;
     } catch (error) {
-      console.error('Error deleting arret:', error);
+      console.error('Erreur suppression arrêt:', error);
       throw error;
     }
   }

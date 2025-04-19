@@ -1,16 +1,10 @@
-import { Component, AfterViewInit } from '@angular/core';
+import { Component, AfterViewInit, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import * as L from 'leaflet';
 import { Arret } from '../../models/arret.model';
 import { ArretService } from '../../services/arret.service';
 import { ToastController } from '@ionic/angular';
-
-declare module 'leaflet' {
-  interface MapOptions {
-    tap?: boolean;
-  }
-}
 
 @Component({
   selector: 'app-add-arret',
@@ -19,9 +13,10 @@ declare module 'leaflet' {
   templateUrl: './add-arret.component.html',
   styleUrls: ['./add-arret.component.scss']
 })
-export class AddArretComponent implements AfterViewInit {
+export class AddArretComponent implements AfterViewInit, OnInit {
   private map!: L.Map;
-  private marker!: L.Marker;
+  private marker: L.Marker | null = null;
+  private existingArrets: Arret[] = [];
   showForm = false;
 
   arret: Arret = {
@@ -37,15 +32,90 @@ export class AddArretComponent implements AfterViewInit {
     private toastController: ToastController
   ) {}
 
+  async ngOnInit() {
+    await this.loadExistingArrets();
+  }
+
   ngAfterViewInit(): void {
     this.initMap();
+  }
+
+  private async loadExistingArrets() {
+    try {
+      this.existingArrets = await this.arretService.getArrets();
+      this.plotExistingArrets();
+    } catch (error) {
+      console.error('Erreur chargement arrêts:', error);
+    }
+  }
+
+  private plotExistingArrets() {
+    const blueIcon = this.createMarkerIcon('#2563eb');
+    this.existingArrets.forEach(arret => {
+      if (arret.position?.coordinates?.length === 2) {
+        const originalLatLng = L.latLng(
+          arret.position.coordinates[1],
+          arret.position.coordinates[0]
+        );
+
+        const marker = L.marker(originalLatLng, {
+          icon: blueIcon,
+          draggable: true
+        }).addTo(this.map)
+        .bindPopup(`<b>${arret.nom}</b><br>Lat: ${originalLatLng.lat.toFixed(4)}, Lng: ${originalLatLng.lng.toFixed(4)}`);
+
+        marker.on('dragend', async () => {
+          const newLatLng = marker.getLatLng();
+
+          const confirmed = window.confirm(
+            `Voulez-vous vraiment déplacer l'arrêt "${arret.nom}" ici ?\nLat: ${newLatLng.lat.toFixed(4)}\nLng: ${newLatLng.lng.toFixed(4)}`
+          );
+
+          if (confirmed) {
+            // Met à jour les coordonnées
+            const updatedArret: Arret = {
+              ...arret,
+              position: {
+                type: 'Point',
+                coordinates: [newLatLng.lng, newLatLng.lat]
+              }
+            };
+
+            try {
+              await this.arretService.updateArret(updatedArret);
+              this.showToast(`Position de "${arret.nom}" mise à jour !`, 'success');
+            } catch (err) {
+              this.showToast('Erreur lors de la mise à jour', 'danger');
+              marker.setLatLng(originalLatLng); // Revenir en arrière si erreur
+            }
+          } else {
+            marker.setLatLng(originalLatLng); // Revenir à l’ancienne position si annulé
+          }
+        });
+      }
+    });
+  }
+
+
+  private createMarkerIcon(color: string): L.DivIcon {
+    return L.divIcon({
+      html: `
+        <div style="color: ${color}; font-size: 2rem; position: relative;">
+          <i class="fas fa-map-marker-alt"></i>
+          <div style="position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); width: 6px; height: 6px; background: white; border-radius: 50%;"></div>
+        </div>
+      `,
+      className: 'custom-marker-icon',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41]
+    });
   }
 
   private initMap(): void {
     this.map = L.map('map', {
       zoomControl: true,
       preferCanvas: true,
-      tap: false
+
     }).setView([14.6928, -17.4467], 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -55,7 +125,6 @@ export class AddArretComponent implements AfterViewInit {
 
     this.map.on('click', (e: L.LeafletMouseEvent) => {
       this.placeMarker(e.latlng);
-      this.showForm = true;
     });
 
     setTimeout(() => this.map.invalidateSize(), 100);
@@ -66,17 +135,7 @@ export class AddArretComponent implements AfterViewInit {
       this.map.removeLayer(this.marker);
     }
 
-    const icon = L.divIcon({
-      html: `
-        <div style="color: #ff0000; font-size: 2rem; position: relative;">
-          <i class="fas fa-map-marker-alt"></i>
-          <div style="position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); width: 6px; height: 6px; background: white; border-radius: 50%;"></div>
-        </div>
-      `,
-      className: 'custom-marker-icon',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41]
-    });
+    const icon = this.createMarkerIcon('#ff0000');
 
     this.marker = L.marker(latlng, {
       icon,
@@ -84,9 +143,10 @@ export class AddArretComponent implements AfterViewInit {
     }).addTo(this.map);
 
     this.updatePosition(latlng);
+    this.showForm = true;
 
-    this.marker.on('dragend', (e) => {
-      this.updatePosition(e.target.getLatLng());
+    this.marker.on('dragend', () => {
+      this.updatePosition(this.marker!.getLatLng());
     });
   }
 
@@ -98,7 +158,7 @@ export class AddArretComponent implements AfterViewInit {
     this.showForm = false;
     if (this.marker) {
       this.map.removeLayer(this.marker);
-      this.marker = null!;
+      this.marker = null;
     }
   }
 
