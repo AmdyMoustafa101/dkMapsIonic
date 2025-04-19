@@ -3,8 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import * as L from 'leaflet';
 import { Arret } from '../../models/arret.model';
+import { ArretService } from '../../services/arret.service';
+import { ToastController } from '@ionic/angular';
 
-// Correction pour l'option tap
 declare module 'leaflet' {
   interface MapOptions {
     tap?: boolean;
@@ -31,42 +32,41 @@ export class AddArretComponent implements AfterViewInit {
     }
   };
 
+  constructor(
+    private arretService: ArretService,
+    private toastController: ToastController
+  ) {}
+
   ngAfterViewInit(): void {
     this.initMap();
   }
 
   private initMap(): void {
-    // Configuration de la carte avec l'option tap
     this.map = L.map('map', {
       zoomControl: true,
       preferCanvas: true,
-      tap: false // Désactive le délai tactile pour Ionic
+      tap: false
     }).setView([14.6928, -17.4467], 13);
 
-    // Couche OpenStreetMap
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
       maxZoom: 19
     }).addTo(this.map);
 
-    // Gestion du clic sur la carte
     this.map.on('click', (e: L.LeafletMouseEvent) => {
       this.placeMarker(e.latlng);
       this.showForm = true;
     });
 
-    // Forcer le redimensionnement initial
     setTimeout(() => this.map.invalidateSize(), 100);
   }
 
   private placeMarker(latlng: L.LatLng): void {
-    // Supprimer le marqueur existant
     if (this.marker) {
       this.map.removeLayer(this.marker);
     }
 
-    // Créer un marqueur personnalisé rouge avec Font Awesome
-    const redMarkerIcon = L.divIcon({
+    const icon = L.divIcon({
       html: `
         <div style="color: #ff0000; font-size: 2rem; position: relative;">
           <i class="fas fa-map-marker-alt"></i>
@@ -78,16 +78,13 @@ export class AddArretComponent implements AfterViewInit {
       iconAnchor: [12, 41]
     });
 
-    // Ajouter le nouveau marqueur
     this.marker = L.marker(latlng, {
-      icon: redMarkerIcon,
+      icon,
       draggable: true
     }).addTo(this.map);
 
-    // Mettre à jour les coordonnées
     this.updatePosition(latlng);
 
-    // Gestion du déplacement du marqueur
     this.marker.on('dragend', (e) => {
       this.updatePosition(e.target.getLatLng());
     });
@@ -110,11 +107,35 @@ export class AddArretComponent implements AfterViewInit {
     this.arret.nom = '';
   }
 
-  addArret(): void {
-    if (!this.arret.nom.trim()) return;
+  async addArret(): Promise<void> {
+    if (!this.arret.nom.trim()) {
+      this.showToast('Veuillez donner un nom à l\'arrêt', 'warning');
+      return;
+    }
 
-    console.log('Arrêt enregistré:', this.arret);
-    this.closeForm();
-    this.arret.nom = '';
+    if (!this.arret.position.coordinates.length) {
+      this.showToast('Veuillez sélectionner un emplacement', 'warning');
+      return;
+    }
+
+    try {
+      await this.arretService.createArret(this.arret);
+      this.showToast('Arrêt enregistré avec succès!', 'success');
+      this.closeForm();
+      this.arret.nom = '';
+    } catch (error) {
+      console.error('Erreur création arrêt:', error);
+      this.showToast('Erreur lors de l\'enregistrement', 'danger');
+    }
+  }
+
+  private async showToast(message: string, color: 'success' | 'warning' | 'danger'): Promise<void> {
+    const toast = await this.toastController.create({
+      message,
+      duration: 3000,
+      color,
+      position: 'top'
+    });
+    await toast.present();
   }
 }

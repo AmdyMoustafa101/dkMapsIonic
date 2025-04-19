@@ -6,35 +6,44 @@ import { Arret } from '../models/arret.model';
   providedIn: 'root'
 })
 export class ArretService {
-  private apiUrl = 'http://localhost:5000/api/arrets'; // Assurez-vous que votre API tourne sur ce port
+  private apiUrl = 'http://localhost:5000/api/arret';
 
   constructor() { }
 
   async createArret(arret: Arret): Promise<any> {
     try {
-      // Formatage des données pour MongoDB
-      const arretData = {
+      const response = await axios.post(this.apiUrl, {
         nom: arret.nom,
         position: {
           type: 'Point',
           coordinates: arret.position.coordinates
         },
-        bus: arret.bus || [] // Initialise un tableau vide si bus n'est pas défini
-      };
-
-      const response = await axios.post(this.apiUrl, arretData);
+        bus: []
+      });
       return response.data;
     } catch (error) {
-      console.error('Erreur lors de la création de l\'arrêt:', error);
+      console.error('Error creating arret:', error);
       throw error;
     }
   }
 
-  updateArret(id: string, arret: Arret) {
-    return axios.put(`${this.apiUrl}/${id}`, arret);
+  async updateArret(id: string, arret: Arret): Promise<any> {
+    try {
+      const response = await axios.put(`${this.apiUrl}/${id}`, arret);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating arret:', error);
+      throw error;
+    }
   }
 
-  deleteArret(id: string) {
-    return axios.delete(`${this.apiUrl}/${id}`);
+  async deleteArret(id: string): Promise<any> {
+    try {
+      const response = await axios.delete(`${this.apiUrl}/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting arret:', error);
+      throw error;
+    }
   }
 }
